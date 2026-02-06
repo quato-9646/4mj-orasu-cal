@@ -1,12 +1,6 @@
 const players = ["東", "南", "西", "北"];
 
-/*
-  あなたの画像の表をそのままデータ化
-  key = 翻数, 符
-  value = { ron, tsumoKo: [子支払い, 親支払い], tsumoOya: [オール] }
-
-  ※ tsumoKo は (子/親) の順で格納
-*/
+// 子の点数テーブル
 const tableChild = {
   1: {
     30: { ron: 1000, tsumoKo: [300, 500] },
@@ -31,19 +25,20 @@ const tableChild = {
     40: { ron: 5200, tsumoKo: [1300, 2600] },
     50: { ron: 6400, tsumoKo: [1600, 3200] },
     60: { ron: 7700, tsumoKo: [2000, 3900] },
-    70: { ron: 8000, tsumoKo: [2000, 4000] }, // 満貫扱い
+    70: { ron: 8000, tsumoKo: [2000, 4000] },
   },
   4: {
     20: { ron: 5200, tsumoKo: [1300, 2600] },
     25: { ron: 6400, tsumoKo: [1600, 3200] },
     30: { ron: 7700, tsumoKo: [2000, 3900] },
-    40: { ron: 8000, tsumoKo: [2000, 4000] }, // 満貫
+    40: { ron: 8000, tsumoKo: [2000, 4000] },
     50: { ron: 8000, tsumoKo: [2000, 4000] },
     60: { ron: 8000, tsumoKo: [2000, 4000] },
     70: { ron: 8000, tsumoKo: [2000, 4000] },
   }
 };
 
+// 親の点数テーブル
 const tableOya = {
   1: {
     30: { ron: 1500, tsumoOya: 500 },
@@ -68,20 +63,19 @@ const tableOya = {
     40: { ron: 7700, tsumoOya: 2600 },
     50: { ron: 9600, tsumoOya: 3200 },
     60: { ron: 11600, tsumoOya: 3900 },
-    70: { ron: 12000, tsumoOya: 4000 }, // 満貫扱い
+    70: { ron: 12000, tsumoOya: 4000 },
   },
   4: {
     20: { ron: 7700, tsumoOya: 2600 },
     25: { ron: 9600, tsumoOya: 3200 },
     30: { ron: 11600, tsumoOya: 3900 },
-    40: { ron: 12000, tsumoOya: 4000 }, // 満貫
+    40: { ron: 12000, tsumoOya: 4000 },
     50: { ron: 12000, tsumoOya: 4000 },
     60: { ron: 12000, tsumoOya: 4000 },
     70: { ron: 12000, tsumoOya: 4000 },
   }
 };
 
-// 満貫以上は固定（表と同じ結果になる）
 const limitHands = [
   { name: "満貫", ronKo: 8000, ronOya: 12000, tsumoKo: [2000, 4000], tsumoOya: 4000 },
   { name: "跳満", ronKo: 12000, ronOya: 18000, tsumoKo: [3000, 6000], tsumoOya: 6000 },
@@ -92,26 +86,20 @@ const limitHands = [
 
 function getAllHands(isOya) {
   const list = [];
+  const table = isOya ? tableOya : tableChild;
 
-  // 表の満貫以下
-  for (const hanStr of Object.keys(isOya ? tableOya : tableChild)) {
-    const han = Number(hanStr);
-    const fuTable = isOya ? tableOya[han] : tableChild[han];
-
-    for (const fuStr of Object.keys(fuTable)) {
-      const fu = Number(fuStr);
-      const data = fuTable[fu];
-
+  for (const han in table) {
+    for (const fu in table[han]) {
+      const data = table[han][fu];
       list.push({
         name: `${fu}符${han}翻`,
         ron: data.ron,
-        tsumoKo: data.tsumoKo ?? null,
-        tsumoOya: data.tsumoOya ?? null,
+        tsumoKo: data.tsumoKo || null,
+        tsumoOya: data.tsumoOya || null,
       });
     }
   }
 
-  // 満貫以上（固定）
   for (const h of limitHands) {
     list.push({
       name: h.name,
@@ -121,69 +109,50 @@ function getAllHands(isOya) {
     });
   }
 
-  // 点数の低い順に並べる（最低条件だけ抽出するため）
   list.sort((a, b) => a.ron - b.ron);
   return list;
 }
 
-// 条件を満たす最小手だけ返す
 function findMinimumWinningConditions(me, target, scores, honba, riichi) {
   const isOya = (me === "東");
   const hands = getAllHands(isOya);
-
   const gap = scores[target] - scores[me];
-
   const candidates = [];
 
   for (const hand of hands) {
-    // ロン非直撃
-    const nonDirect = hand.ron + (300 * honba) + 1000 * riichi;
-    if (nonDirect >= gap) {
-      candidates.push(`ロン（非直撃）: ${hand.name}`);
-    }
-
-    // ロン直撃
-    const direct = (hand.ron + 300 * honba) + (hand.ron + 300 * honba) + 1000 * riichi;
-    if (direct >= gap) {
+    // 1. ロン（直撃）
+    const directGain = hand.ron + (300 * honba);
+    const directLoss = hand.ron + (300 * honba);
+    if ((directGain + directLoss + riichi * 1000) >= gap) {
       candidates.push(`ロン（直撃）: ${hand.name}`);
     }
 
-    // ツモ
-    if (!isOya && hand.tsumoKo) {
-      const payTarget = (target === "東")
-        ? hand.tsumoKo[1] + 300 * honba
-        : hand.tsumoKo[0] + 300 * honba;
-
-      const totalGet =
-        (hand.tsumoKo[1] + 300 * honba) +
-        2 * (hand.tsumoKo[0] + 300 * honba);
-
-      // gap縮まり = targetが払う分 + 自分が得る総額 + 供託
-      const diff = payTarget + totalGet + 1000 * riichi;
-
-      if (diff >= gap) {
-        candidates.push(`ツモ: ${hand.name}`);
-      }
+    // 2. ツモ
+    let myGain = 0;
+    let targetLoss = 0;
+    if (isOya) {
+      myGain = (hand.tsumoOya * 3) + (900 * honba);
+      targetLoss = hand.tsumoOya + (300 * honba);
+    } else if (hand.tsumoKo) {
+      myGain = (hand.tsumoKo[0] * 2) + hand.tsumoKo[1] + (900 * honba);
+      targetLoss = (target === "東") ? (hand.tsumoKo[1] + 300 * honba) : (hand.tsumoKo[0] + 300 * honba);
+    }
+    if ((myGain + targetLoss + riichi * 1000) >= gap) {
+      candidates.push(`ツモ: ${hand.name}`);
     }
 
-    if (isOya && hand.tsumoOya != null) {
-      const payEach = hand.tsumoOya + 300 * honba;
-      const totalGet = payEach * 3;
-
-      const diff = payEach + totalGet + 1000 * riichi;
-      if (diff >= gap) {
-        candidates.push(`ツモ（親）: ${hand.name}`);
-      }
+    // 3. ロン（非直撃/脇）
+    if ((hand.ron + (300 * honba) + riichi * 1000) >= gap) {
+      candidates.push(`ロン（脇）: ${hand.name}`);
     }
 
-    // もしこのhandで達成できるなら、これ以上大きい手は「最低限」ではないので終了
     if (candidates.length > 0) break;
   }
-
   return candidates;
 }
 
 function calculate() {
+  // HTMLのIDから値を取得
   const scores = {
     東: Number(document.getElementById("east").value),
     南: Number(document.getElementById("south").value),
@@ -195,34 +164,25 @@ function calculate() {
   const honba = Number(document.getElementById("honba").value);
 
   const sorted = [...players].sort((a, b) => scores[b] - scores[a]);
-
   let out = "";
 
-  // 1位は不要なので i=1から
   for (let i = 1; i < sorted.length; i++) {
     const me = sorted[i];
     out += `【${me}家（${i + 1}位）】\n`;
 
-    // 上の順位すべてをターゲットにする
     for (let t = i - 1; t >= 0; t--) {
       const target = sorted[t];
       const gap = scores[target] - scores[me];
-
       out += `  ▶ ${t + 1}位（${target}家）との差: ${gap}\n`;
 
       const minimum = findMinimumWinningConditions(me, target, scores, honba, riichi);
-
       if (minimum.length === 0) {
-        out += `    ・逆転不可（役満でも届かない可能性）\n`;
+        out += `    ・逆転不可\n`;
       } else {
-        for (const cond of minimum) {
-          out += `    ・${cond}\n`;
-        }
+        minimum.forEach(cond => out += `    ・${cond}\n`);
       }
     }
-
     out += "\n";
   }
-
   document.getElementById("result").textContent = out;
 }
