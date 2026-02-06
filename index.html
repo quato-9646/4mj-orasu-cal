@@ -7,25 +7,29 @@
 </head>
 <body>
   <h1>麻雀 オーラス条件計算</h1>
+  
+  <div class="box">
+    <h2>点数入力</h2>
+    <table>
+      <tr><th>席</th><th>点数</th></tr>
+      <tr><td>東(親)</td><td><input type="number" id="east" value="25000"></td></tr>
+      <tr><td>南</td><td><input type="number" id="south" value="25000"></td></tr>
+      <tr><td>西</td><td><input type="number" id="west" value="25000"></td></tr>
+      <tr><td>北</td><td><input type="number" id="north" value="25000"></td></tr>
+    </table>
 
-  <table>
-    <tr>
-      <th>席</th><th>点数</th>
-    </tr>
-    <tr><td>東</td><td><input type="number" id="east" value="25000"></td></tr>
-    <tr><td>南</td><td><input type="number" id="south" value="25000"></td></tr>
-    <tr><td>西</td><td><input type="number" id="west" value="25000"></td></tr>
-    <tr><td>北</td><td><input type="number" id="north" value="25000"></td></tr>
-  </table>
+    <div class="inputs">
+      <label>リーチ棒(供託) <input type="number" id="riichi" value="0"></label>
+      <label>積み棒 <input type="number" id="honba" value="0"></label>
+    </div>
 
-  <div class="inputs">
-    <label>リーチ棒 <input type="number" id="riichi" value="0"></label>
-    <label>積み棒 <input type="number" id="honba" value="0"></label>
+    <button onclick="calculate()">計算する</button>
   </div>
 
-  <button onclick="calculate()">計算する</button>
-
-  <pre id="result"></pre>
+  <div class="box">
+    <h2>結果</h2>
+    <pre id="result"></pre>
+  </div>
 
   <script src="script.js"></script>
 </body>
